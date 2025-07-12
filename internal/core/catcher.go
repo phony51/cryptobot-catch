@@ -50,6 +50,10 @@ func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
 				go func() {
 					for _, u := range d.OtherUpdates {
 						switch upd := u.(type) {
+						case *tg.UpdateNewMessage:
+							if msg, ok := upd.Message.(*tg.Message); ok {
+								c.messages <- msg
+							}
 						case *tg.UpdateNewChannelMessage:
 							if msg, ok := upd.Message.(*tg.Message); ok {
 								c.messages <- msg
