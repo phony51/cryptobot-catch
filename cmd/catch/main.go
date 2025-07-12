@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gotd/contrib/bg"
+	"github.com/gotd/contrib/middleware/ratelimit"
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
@@ -18,6 +19,7 @@ import (
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
 	"os"
+	"time"
 )
 
 func main() {
@@ -36,6 +38,9 @@ func main() {
 		telegram.Options{
 			SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
 			Logger:         zapLogger,
+			Middlewares: []telegram.Middleware{
+				ratelimit.New(10, int(time.Second)),
+			},
 		},
 	)
 
