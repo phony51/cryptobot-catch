@@ -4,9 +4,9 @@ import (
 	"context"
 	"cryptobot-catch/internal/core/cheques"
 	"cryptobot-catch/pkg/cryptobot"
-	"fmt"
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
+	"time"
 )
 
 type Catcher struct {
@@ -20,59 +20,53 @@ func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
 	go func() { _ = c.filter.Run(ctx) }()
 	state, err := client.UpdatesGetState(ctx)
 	logger := zap.L()
-	logger.Info(state.String())
+	ticker := time.NewTicker(10 * time.Millisecond)
 	if err != nil {
 		return err
 	}
 
 	for {
-		diff, err := client.UpdatesGetDifference(ctx, &tg.UpdatesGetDifferenceRequest{
-			Pts:  state.Pts,
-			Date: state.Date,
-			Qts:  state.Qts,
-		})
-		if err != nil {
-			logger.Info(err.Error())
-			continue
-		}
-		switch d := diff.(type) {
-		case *tg.UpdatesDifference:
-			for _, msg := range d.NewMessages {
-				if v, ok := msg.(*tg.Message); ok {
-					logger.Info(fmt.Sprintf("%s: %s", "NewMessages updates", v.Message))
-					c.messages <- v
-				}
-			}
-			for _, u := range d.OtherUpdates {
-				switch upd := u.(type) {
-				case *tg.UpdateEditMessage:
-					if v, ok := upd.Message.(*tg.Message); ok {
-						logger.Info(fmt.Sprintf("%s: %s", "UpdateEditMessage update", v.Message))
-						c.messages <- v
-					}
-				case *tg.UpdateEditChannelMessage:
-					if v, ok := upd.Message.(*tg.Message); ok {
-						logger.Info(fmt.Sprintf("%s: %s", "UpdateEditChannelMessage update", v.Message))
-						c.messages <- v
-					}
-				case *tg.UpdateNewMessage:
-					if v, ok := upd.Message.(*tg.Message); ok {
-						logger.Info(fmt.Sprintf("%s: %s", "UpdateNewMessage update", v.Message))
-						c.messages <- v
-					}
-				case *tg.UpdateNewChannelMessage:
-					if v, ok := upd.Message.(*tg.Message); ok {
-						logger.Info(fmt.Sprintf("%s: %s", "UpdateNewChannelMessage update", v.Message))
-						c.messages <- v
-					}
-				}
-
-			}
-			state = &d.State
-		case *tg.UpdatesDifferenceTooLong:
-			state, err = client.UpdatesGetState(ctx)
+		select {
+		case <-ctx.Done():
+		case <-ticker.C:
+			diff, err := client.UpdatesGetDifference(ctx, &tg.UpdatesGetDifferenceRequest{
+				Pts:  state.Pts,
+				Date: state.Date,
+				Qts:  state.Qts,
+			})
 			if err != nil {
-				logger.Info(err.Error())
+				logger.Debug(err.Error())
+				continue
+			}
+			switch d := diff.(type) {
+			case *tg.UpdatesDifference:
+				go func() {
+					for _, msg := range d.NewMessages {
+						if msg, ok := msg.(*tg.Message); ok {
+							c.messages <- msg
+						}
+					}
+				}()
+				go func() {
+					for _, u := range d.OtherUpdates {
+						switch upd := u.(type) {
+						case *tg.UpdateEditMessage:
+							if msg, ok := upd.Message.(*tg.Message); ok {
+								c.messages <- msg
+							}
+						case *tg.UpdateEditChannelMessage:
+							if msg, ok := upd.Message.(*tg.Message); ok {
+								c.messages <- msg
+							}
+						}
+					}
+				}()
+				state = &d.State
+			case *tg.UpdatesDifferenceTooLong:
+				state, err = client.UpdatesGetState(ctx)
+				if err != nil {
+					logger.Debug(err.Error())
+				}
 			}
 		}
 	}

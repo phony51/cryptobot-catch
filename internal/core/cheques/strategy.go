@@ -1,7 +1,9 @@
 package cheques
 
 import (
+	"fmt"
 	"github.com/gotd/td/tg"
+	"regexp"
 	"strings"
 )
 
@@ -16,6 +18,19 @@ func (s *InlineDetectStrategy) ChequeID(msg *tg.Message) (string, bool) {
 		if button, ok := keyboard.Rows[0].Buttons[0].(*tg.KeyboardButtonURL); ok {
 			return strings.CutPrefix(button.URL, "http://t.me/send?start=CQ")
 		}
+	}
+	return "", false
+}
+
+type RegexFullChequeIDDetectStrategy struct{}
+
+var fullChequeIDPattern = regexp.MustCompile("CQ([A-Za-z0-9]{10})")
+
+func (s *RegexFullChequeIDDetectStrategy) ChequeID(msg *tg.Message) (string, bool) {
+	found := fullChequeIDPattern.FindStringSubmatch(msg.Message)
+	if len(found) != 0 {
+		fmt.Println(found)
+		return found[1], true
 	}
 	return "", false
 }

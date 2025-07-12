@@ -6,20 +6,16 @@ import (
 	"cryptobot-catch/internal/config"
 	"cryptobot-catch/internal/core"
 	"cryptobot-catch/internal/core/cheques"
-	"cryptobot-catch/pkg/authenticators"
 	"cryptobot-catch/pkg/cryptobot"
 	"encoding/json"
 	"fmt"
 	"github.com/gotd/contrib/bg"
-	"github.com/gotd/contrib/middleware/ratelimit"
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
-	"github.com/gotd/td/telegram/auth"
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
 	"os"
-	"time"
 )
 
 func main() {
@@ -38,9 +34,6 @@ func main() {
 		telegram.Options{
 			SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
 			Logger:         zapLogger,
-			Middlewares: []telegram.Middleware{
-				ratelimit.New(10, int(time.Second)),
-			},
 		},
 	)
 
@@ -65,16 +58,6 @@ func main() {
 		utils.Must(catcherStop())
 	}()
 
-	utils.Must(activatorClient.Auth().IfNecessary(ctx, auth.NewFlow(
-		auth.Constant(
-			catchConfig.Activator.Phone,
-			catchConfig.Activator.Password,
-			&authenticators.PromptCodeAuthenticator{
-				Prompt: "enter the confirmation code for activator: ",
-			},
-		),
-		auth.SendCodeOptions{},
-	)))
 	resolvedCryptoBot, err := activatorClient.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 		Username: "send",
 	})
@@ -85,7 +68,7 @@ func main() {
 			AccessHash: resolvedCryptoBot.Users[0].(*tg.User).AccessHash,
 		},
 	)
-	chequeCatcher := core.NewCatcher(cryptoBot, &cheques.InlineDetectStrategy{})
+	chequeCatcher := core.NewCatcher(cryptoBot, &cheques.InlineDetectStrategy{}, &cheques.RegexFullChequeIDDetectStrategy{})
 	utils.Must(chequeCatcher.Run(ctx, catcherClient.API()))
 
 }
