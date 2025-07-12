@@ -4,6 +4,7 @@ import (
 	"context"
 	"cryptobot-catch/internal/core/cheques"
 	"cryptobot-catch/pkg/cryptobot"
+	"fmt"
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
 )
@@ -38,6 +39,7 @@ func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
 		case *tg.UpdatesDifference:
 			for _, msg := range d.NewMessages {
 				if v, ok := msg.(*tg.Message); ok {
+					logger.Info(fmt.Sprintf("%s: %s", "NewMessages updates", v.Message))
 					c.messages <- v
 				}
 			}
@@ -45,20 +47,32 @@ func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
 				switch upd := u.(type) {
 				case *tg.UpdateEditMessage:
 					if v, ok := upd.Message.(*tg.Message); ok {
+						logger.Info(fmt.Sprintf("%s: %s", "UpdateEditMessage update", v.Message))
 						c.messages <- v
 					}
 				case *tg.UpdateEditChannelMessage:
 					if v, ok := upd.Message.(*tg.Message); ok {
+						logger.Info(fmt.Sprintf("%s: %s", "UpdateEditChannelMessage update", v.Message))
+						c.messages <- v
+					}
+				case *tg.UpdateNewMessage:
+					if v, ok := upd.Message.(*tg.Message); ok {
+						logger.Info(fmt.Sprintf("%s: %s", "UpdateNewMessage update", v.Message))
+						c.messages <- v
+					}
+				case *tg.UpdateNewChannelMessage:
+					if v, ok := upd.Message.(*tg.Message); ok {
+						logger.Info(fmt.Sprintf("%s: %s", "UpdateNewChannelMessage update", v.Message))
 						c.messages <- v
 					}
 				}
+
 			}
 			state = &d.State
 		case *tg.UpdatesDifferenceTooLong:
 			state, err = client.UpdatesGetState(ctx)
 			if err != nil {
 				logger.Info(err.Error())
-				continue
 			}
 		}
 	}
