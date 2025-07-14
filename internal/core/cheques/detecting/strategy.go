@@ -1,7 +1,6 @@
 package detecting
 
 import (
-	"fmt"
 	"github.com/gotd/td/tg"
 	"regexp"
 	"strings"
