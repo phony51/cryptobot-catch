@@ -7,8 +7,12 @@ import (
 	"strings"
 )
 
-type DetectStrategy interface {
+type ChequeDetector interface {
 	ChequeID(*tg.Message) (string, bool)
+}
+
+type DetectStrategy interface {
+	ChequeDetector
 }
 
 type InlineDetectStrategy struct{}
