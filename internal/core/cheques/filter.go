@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
-	"sync"
 )
 
 type Filter struct {
@@ -31,19 +30,14 @@ func (cf *Filter) Run(ctx context.Context) error {
 			return ctx.Err()
 		case msg := <-cf.messages:
 			for _, strategy := range cf.detectStrategies {
-				var once sync.Once
-				go func() {
-					if chequeID, ok := strategy.ChequeID(msg); ok {
-						once.Do(func() {
-							cf.chequeIDs <- chequeID
-							mStrategy = strategy.(detecting.MappedDetectStrategy)
-							zap.L().Info("Cheque caught",
-								zap.String("chequeID", chequeID),
-								zap.String("strategy", fmt.Sprint(mStrategy.Alias())),
-							)
-						})
-					}
-				}()
+				if chequeID, ok := strategy.ChequeID(msg); ok {
+					cf.chequeIDs <- chequeID
+					mStrategy = strategy.(detecting.MappedDetectStrategy)
+					zap.L().Info("Cheque caught",
+						zap.String("chequeID", chequeID),
+						zap.String("strategy", fmt.Sprint(mStrategy.Alias())),
+					)
+				}
 			}
 		}
 	}
