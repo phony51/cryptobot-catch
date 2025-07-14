@@ -10,7 +10,7 @@ type Mapper interface {
 }
 
 func (s *InlineDetectStrategy) Alias() string {
-	return "inline-detect"
+	return "inline"
 }
 
 func (s *RegexChequeIDDetectStrategy) Alias() string {

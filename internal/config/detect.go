@@ -22,8 +22,8 @@ func (e InvalidDetectStrategyError) Error() string {
 }
 
 var detectStrategyAliasMap = map[string]detecting.DetectStrategy{
-	"regexChequeID": &detecting.RegexChequeIDDetectStrategy{},
-	"inline":        &detecting.InlineDetectStrategy{},
+	(&detecting.RegexChequeIDDetectStrategy{}).Alias(): &detecting.RegexChequeIDDetectStrategy{},
+	(&detecting.InlineDetectStrategy{}).Alias():        &detecting.InlineDetectStrategy{},
 }
 
 type DetectStrategies struct {
