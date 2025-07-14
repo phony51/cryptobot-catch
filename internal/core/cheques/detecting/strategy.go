@@ -1,4 +1,4 @@
-package cheques
+package detecting
 
 import (
 	"fmt"
@@ -7,12 +7,8 @@ import (
 	"strings"
 )
 
-type ChequeDetector interface {
-	ChequeID(*tg.Message) (string, bool)
-}
-
 type DetectStrategy interface {
-	ChequeDetector
+	ChequeID(*tg.Message) (string, bool)
 }
 
 type InlineDetectStrategy struct{}
@@ -26,12 +22,12 @@ func (s *InlineDetectStrategy) ChequeID(msg *tg.Message) (string, bool) {
 	return "", false
 }
 
-type RegexFullChequeIDDetectStrategy struct{}
+type RegexChequeIDDetectStrategy struct{}
 
-var fullChequeIDPattern = regexp.MustCompile("CQ([A-Za-z0-9]{10})")
+var chequeIDPattern = regexp.MustCompile("CQ([A-Za-z0-9]{10})")
 
-func (s *RegexFullChequeIDDetectStrategy) ChequeID(msg *tg.Message) (string, bool) {
-	found := fullChequeIDPattern.FindStringSubmatch(msg.Message)
+func (s *RegexChequeIDDetectStrategy) ChequeID(msg *tg.Message) (string, bool) {
+	found := chequeIDPattern.FindStringSubmatch(msg.Message)
 	if len(found) != 0 {
 		fmt.Println(found)
 		return found[1], true

@@ -12,7 +12,7 @@ FROM alpine:3.19
 
 WORKDIR /app
 
-VOLUME ["/app/sessions"]
+VOLUME ["/app/sessions", "/app/configuration.json", "logs.json"]
 
 COPY --from=builder /app/bin /app/sessions /app/configuration.json ./
 ENTRYPOINT ["/app/bin/main"]

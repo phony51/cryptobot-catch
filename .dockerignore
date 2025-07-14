@@ -1,4 +1,4 @@
 .gitignore
 Dockerfile
 .git
-*.log
+logs.json

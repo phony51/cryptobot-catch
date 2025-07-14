@@ -1,10 +1,10 @@
 package config
 
 import (
-	"cryptobot-catch/internal/core/cheques"
+	"cryptobot-catch/internal/core/cheques/detecting"
+	"cryptobot-catch/internal/utils"
+	"encoding/json"
 	"fmt"
-	"maps"
-	"slices"
 )
 
 type DetectStrategyNotSelectedError struct{}
@@ -14,43 +14,73 @@ func (e DetectStrategyNotSelectedError) Error() string {
 }
 
 type InvalidDetectStrategyError struct {
-	StrategyName string
+	Name string
 }
 
 func (e InvalidDetectStrategyError) Error() string {
-	return fmt.Sprintf("%s: %s", "invalid detect strategy name", e.StrategyName)
+	return fmt.Sprintf("invalid detect strategy name %s", e.Name)
 }
 
-var detectStrategyAliasMap = map[string]cheques.DetectStrategy{
-	"regexFullChequeID": &cheques.RegexFullChequeIDDetectStrategy{},
-	"inline":            &cheques.InlineDetectStrategy{},
+var detectStrategyAliasMap = map[string]detecting.DetectStrategy{
+	"regexChequeID": &detecting.RegexChequeIDDetectStrategy{},
+	"inline":        &detecting.InlineDetectStrategy{},
 }
 
-var detectStrategyAliasKeys = slices.Collect(maps.Keys(detectStrategyAliasMap))
-
-type DetectStrategyAliases []DetectStrategyAlias
-
-func (a *DetectStrategyAliases) Strategies() ([]cheques.DetectStrategy, error) {
-	if len(*a) == 0 {
-		return nil, DetectStrategyNotSelectedError{}
-	}
-	strategies := make([]cheques.DetectStrategy, len(*a))
-	for i, alias := range *a {
-		s, err := alias.Strategy()
-		if err != nil {
-			return nil, err
-		}
-		strategies[i] = s
-	}
-	return strategies, nil
+type DetectStrategies struct {
+	Strategies []detecting.DetectStrategy
 }
 
-type DetectStrategyAlias string
-
-func (a *DetectStrategyAlias) Strategy() (cheques.DetectStrategy, error) {
-	k := string(*a)
-	if slices.Contains(detectStrategyAliasKeys, k) {
-		return detectStrategyAliasMap[k], true
+func (ss *DetectStrategies) checkLength() error {
+	if len(ss.Strategies) > 0 {
+		return nil
 	}
-	return nil, false
+	return DetectStrategyNotSelectedError{}
+}
+
+func (ss *DetectStrategies) UnmarshalJSON(data []byte) error {
+	var ss_ []DetectStrategy
+	if err := json.Unmarshal(data, &ss_); err != nil {
+		return err
+	}
+
+	utils.RemoveDuplicate(ss_)
+	if len(ss_) == 0 {
+		return DetectStrategyNotSelectedError{}
+	}
+
+	ss.Strategies = make([]detecting.DetectStrategy, len(ss_))
+	for i, s := range ss_ {
+		ss.Strategies[i] = s.Strategy()
+	}
+	return nil
+}
+
+type DetectStrategyNotExistsError struct {
+	Name string
+}
+
+func (e DetectStrategyNotExistsError) Error() string {
+	return fmt.Sprintf("detect strategy not exists: %s", e.Name)
+}
+
+type DetectStrategy string
+
+func (s *DetectStrategy) checkName() error {
+	if _, ok := detectStrategyAliasMap[string(*s)]; ok {
+		return nil
+	}
+	return DetectStrategyNotExistsError{string(*s)}
+}
+
+func (s *DetectStrategy) UnmarshalJSON(data []byte) error {
+	var s_ string
+	if err := json.Unmarshal(data, &s_); err != nil {
+		return err
+	}
+	*s = DetectStrategy(s_)
+	return s.checkName()
+}
+
+func (s *DetectStrategy) Strategy() detecting.DetectStrategy {
+	return detectStrategyAliasMap[string(*s)]
 }

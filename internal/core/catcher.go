@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"cryptobot-catch/internal/core/cheques"
+	"cryptobot-catch/internal/core/cheques/detecting"
 	"cryptobot-catch/pkg/cryptobot"
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
@@ -11,13 +12,14 @@ import (
 
 type CatchOptions struct {
 	PollingInterval  time.Duration
-	DetectStrategies []cheques.DetectStrategy
+	DetectStrategies []detecting.DetectStrategy
 }
 
 type Catcher struct {
-	filter    *cheques.Filter
-	activator *cheques.Activator
-	messages  chan<- *tg.Message
+	filter          *cheques.Filter
+	activator       *cheques.Activator
+	messages        chan<- *tg.Message
+	pollingInterval time.Duration
 }
 
 func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
@@ -26,11 +28,10 @@ func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
 	state, err := client.UpdatesGetState(ctx)
 
 	logger := zap.L()
-	ticker := time.NewTicker(1000 * time.Millisecond)
+	ticker := time.NewTicker(c.pollingInterval)
 	if err != nil {
 		return err
 	}
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -41,12 +42,11 @@ func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
 				Qts:  state.Qts,
 			})
 			if err != nil {
-				logger.Info(err.Error())
 				continue
 			}
 			switch d := diff.(type) {
 			case *tg.UpdatesDifference:
-				logger.Info(d.String())
+				logger.Debug(d.String())
 				go func() {
 					for _, msg := range d.NewMessages {
 						if msg, ok := msg.(*tg.Message); ok {
@@ -97,6 +97,7 @@ func NewCatcher(cryptoBot *cryptobot.CryptoBot, options *CatchOptions) *Catcher 
 			messages,
 			chequeIDs,
 		),
-		messages: messages,
+		messages:        messages,
+		pollingInterval: options.PollingInterval,
 	}
 }
