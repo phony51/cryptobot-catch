@@ -29,7 +29,6 @@ var chequeIDPattern = regexp.MustCompile("CQ([A-Za-z0-9]{10})")
 func (s *RegexChequeIDDetectStrategy) ChequeID(msg *tg.Message) (string, bool) {
 	found := chequeIDPattern.FindStringSubmatch(msg.Message)
 	if len(found) != 0 {
-		fmt.Println(found)
 		return found[1], true
 	}
 	return "", false
