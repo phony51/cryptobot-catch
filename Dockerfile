@@ -7,10 +7,10 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
-        -ldflags="-s -w" \
-        -trimpath \
-        -o /app/bin/main \
-        ./cmd/catch/main.go
+-ldflags="-s -w" \
+-trimpath \
+-o /app/bin/main \
+./cmd/catch/main.go
 
 FROM alpine:3.19
 
