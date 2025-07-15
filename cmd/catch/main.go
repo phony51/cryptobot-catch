@@ -44,7 +44,7 @@ var (
 )
 
 func main() {
-	logger, err := devCfg.Build()
+	logger, err := prodCfg.Build()
 	utils.Must(err)
 	zap.ReplaceGlobals(logger)
 
@@ -56,6 +56,7 @@ func main() {
 
 	ctx, shutdown := context.WithCancel(context.Background())
 	defer shutdown()
+
 	messagesCh := make(chan *tg.Message)
 	gaps := updates.UpdatesManager(messagesCh)
 
