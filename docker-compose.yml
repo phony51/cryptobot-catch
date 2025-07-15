@@ -6,6 +6,6 @@ services:
       dockerfile: catcher.Dockerfile
     restart: unless-stopped
     volumes:
-      - ./sessions:/app/sessions
-      - ./configuration.json:/app/configuration.json
-      - ./logs.json:/app/logs.json
+      - sessions/:/app/sessions
+      - configuration.json:/app/configuration.json
+      - logs.json:/app/logs.json
