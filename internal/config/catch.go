@@ -1,10 +1,9 @@
 package config
 
 type CatchConfig struct {
-	Catcher           Credentials      `json:"catcher"`
-	Activator         Credentials      `json:"activator"`
-	PollingIntervalMs int              `json:"pollingIntervalMs"`
-	DetectBy          DetectStrategies `json:"detectBy"`
+	Catcher   Credentials      `json:"catcher"`
+	Activator Credentials      `json:"activator"`
+	DetectBy  DetectStrategies `json:"detectBy"`
 }
 
 type Credentials struct {

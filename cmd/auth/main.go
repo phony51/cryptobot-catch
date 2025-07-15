@@ -30,21 +30,7 @@ func main() {
 			SessionStorage: &session.FileStorage{Path: "sessions/activator.json"},
 		},
 	)
-	ctx, shutdown := context.WithCancel(context.Background())
-	defer shutdown()
-
-	utils.Must(activatorClient.Run(ctx, func(ctx context.Context) error {
-		return activatorClient.Auth().IfNecessary(ctx, auth.NewFlow(
-			auth.Constant(
-				catchConfig.Activator.Phone,
-				catchConfig.Activator.Password,
-				&authenticators.PromptCodeAuthenticator{
-					Prompt: "enter the confirmation code for activator: ",
-				},
-			),
-			auth.SendCodeOptions{},
-		))
-	}))
+	ctx := context.Background()
 
 	utils.Must(catcherClient.Run(ctx, func(ctx context.Context) error {
 		return catcherClient.Auth().IfNecessary(ctx, auth.NewFlow(
@@ -53,6 +39,19 @@ func main() {
 				catchConfig.Catcher.Password,
 				&authenticators.PromptCodeAuthenticator{
 					Prompt: "enter the confirmation code for catcher: ",
+				},
+			),
+			auth.SendCodeOptions{},
+		))
+	}))
+
+	utils.Must(activatorClient.Run(ctx, func(ctx context.Context) error {
+		return activatorClient.Auth().IfNecessary(ctx, auth.NewFlow(
+			auth.Constant(
+				catchConfig.Activator.Phone,
+				catchConfig.Activator.Password,
+				&authenticators.PromptCodeAuthenticator{
+					Prompt: "enter the confirmation code for activator: ",
 				},
 			),
 			auth.SendCodeOptions{},

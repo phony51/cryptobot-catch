@@ -4,6 +4,7 @@ import (
 	"context"
 	"cryptobot-catch/internal/config"
 	"cryptobot-catch/internal/core"
+	"cryptobot-catch/internal/core/updates"
 	"cryptobot-catch/internal/utils"
 	"cryptobot-catch/pkg/cryptobot"
 	"encoding/json"
@@ -12,11 +13,11 @@ import (
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/message"
+	"github.com/gotd/td/telegram/updates/hook"
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"os"
-	"time"
 )
 
 var (
@@ -43,7 +44,7 @@ var (
 )
 
 func main() {
-	logger, err := prodCfg.Build()
+	logger, err := devCfg.Build()
 	utils.Must(err)
 	zap.ReplaceGlobals(logger)
 
@@ -55,17 +56,22 @@ func main() {
 
 	ctx, shutdown := context.WithCancel(context.Background())
 	defer shutdown()
-
-	activatorClient := telegram.NewClient(catchConfig.Activator.AppID, catchConfig.Activator.AppHash,
-		telegram.Options{
-			SessionStorage: &session.FileStorage{Path: "sessions/activator.json"},
-			Logger:         logger,
-		},
-	)
+	messagesCh := make(chan *tg.Message)
+	gaps := updates.UpdatesManager(messagesCh)
 
 	catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
 		telegram.Options{
 			SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
+			Logger:         logger,
+			UpdateHandler:  gaps,
+			Middlewares: []telegram.Middleware{
+				hook.UpdateHook(gaps.Handle),
+			},
+		},
+	)
+	activatorClient := telegram.NewClient(catchConfig.Activator.AppID, catchConfig.Activator.AppHash,
+		telegram.Options{
+			SessionStorage: &session.FileStorage{Path: "sessions/activator.json"},
 			Logger:         logger,
 		},
 	)
@@ -91,8 +97,7 @@ func main() {
 			if _, err := catcherClient.Auth().Status(ctx); err != nil {
 				return errors.Join(fmt.Errorf("failed to authorize catcher"), err)
 			}
-			chequeCatcher := core.NewCatcher(cryptoBot, &core.CatchOptions{
-				PollingInterval:  time.Duration(catchConfig.PollingIntervalMs) * time.Millisecond,
+			chequeCatcher := core.NewCatcher(cryptoBot, gaps, messagesCh, &core.CatcherOptions{
 				DetectStrategies: catchConfig.DetectBy.Strategies,
 			})
 			return chequeCatcher.Run(ctx, catcherClient.API())
