@@ -25,13 +25,13 @@ func NewFilter(detectStrategies []detecting.DetectStrategy, messages <-chan *tg.
 
 func (cf *Filter) Run(ctx context.Context) error {
 	var mStrategy detecting.MappedDetectStrategy
-	var activateOnce sync.Once
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg := <-cf.messages:
-			activateOnce = sync.Once{}
+			var activateOnce sync.Once
 			for _, strategy := range cf.detectStrategies {
 				go func() {
 					if chequeID, ok := strategy.ChequeID(msg); ok {
