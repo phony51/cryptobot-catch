@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  catcher:
+    build:
+      dockerfile: catcher.Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./sessions:/app/sessions
+      - ./configuration.json:/app/configuration.json
+      - ./logs.json:/app/logs.json
