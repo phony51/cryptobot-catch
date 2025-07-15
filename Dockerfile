@@ -1,4 +1,4 @@
-FROM golang:1.24 AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -12,11 +12,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 -o /app/bin/main \
 ./cmd/catch/main.go
 
-FROM alpine:3.19
+
+FROM alpine:latest
 
 WORKDIR /app
 
-VOLUME ["/app/sessions", "/app/configuration.json", "logs.json"]
+VOLUME ["/app/sessions", "/app/configuration.json", "/app/logs.json"]
 
 COPY --from=builder /app/bin /app/sessions /app/configuration.json ./
+
 ENTRYPOINT ["/app/bin/main"]
