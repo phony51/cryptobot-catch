@@ -24,7 +24,7 @@ func NewFilter(detectStrategies []detecting.DetectStrategy, messages <-chan *tg.
 
 func (cf *Filter) Run(ctx context.Context) error {
 	var mStrategy detecting.MappedDetectStrategy
-
+	logger := zap.L()
 	for {
 		select {
 		case <-ctx.Done():
@@ -34,7 +34,7 @@ func (cf *Filter) Run(ctx context.Context) error {
 				if chequeID, ok := strategy.ChequeID(msg); ok {
 					cf.chequeIDs <- chequeID
 					mStrategy = strategy.(detecting.MappedDetectStrategy)
-					zap.L().Info("Cheque caught",
+					logger.Info("Cheque caught",
 						zap.String("chequeID", chequeID),
 						zap.String("strategy", fmt.Sprint(mStrategy.Alias())),
 					)
