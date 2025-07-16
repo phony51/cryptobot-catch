@@ -2,7 +2,7 @@ package detecting
 
 import (
 	"github.com/gotd/td/tg"
-	"regexp"
+	regexp "github.com/wasilibs/go-re2"
 	"strings"
 )
 
