@@ -22,7 +22,7 @@ func UpdateXMessageHandler[U UpdateXMessage](messages chan<- *tg.Message) Update
 	}
 }
 
-func UpdatesManager(messages chan<- *tg.Message) *updates.Manager {
+func NewGaps(messages chan<- *tg.Message) *updates.Manager {
 	d := tg.NewUpdateDispatcher()
 
 	d.OnNewMessage(tg.NewMessageHandler(UpdateXMessageHandler[*tg.UpdateNewMessage](messages)))

@@ -58,7 +58,8 @@ func main() {
 	defer shutdown()
 
 	messagesCh := make(chan *tg.Message)
-	gaps := updates.UpdatesManager(messagesCh)
+	defer close(messagesCh)
+	gaps := updates.NewGaps(messagesCh)
 
 	catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
 		telegram.Options{
