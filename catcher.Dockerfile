@@ -16,6 +16,8 @@ FROM alpine:latest
 
 WORKDIR /app
 
-COPY --from=builder /app/bin /app/bin
+COPY --from=builder /app/configuration.json /app
+COPY --from=builder /app/sessions/ /app/sessions/
+COPY --from=builder /app/bin/ /app/bin/
 
 ENTRYPOINT ["/app/bin/catcher"]
