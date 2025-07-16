@@ -21,10 +21,17 @@ func (e InvalidDetectStrategyError) Error() string {
 	return fmt.Sprintf("invalid detect strategy name %s", e.Name)
 }
 
-var detectStrategyAliasMap = map[string]detecting.DetectStrategy{
-	(&detecting.RegexChequeIDDetectStrategy{}).Alias(): &detecting.RegexChequeIDDetectStrategy{},
-	(&detecting.InlineDetectStrategy{}).Alias():        &detecting.InlineDetectStrategy{},
+var availableDetectStrategies = []detecting.MappedDetectStrategy{
+	&detecting.InlineDetectStrategy{},
+	&detecting.RegexChequeIDDetectStrategy{},
 }
+var aliasToDetectStrategy = func() map[string]detecting.MappedDetectStrategy {
+	m := make(map[string]detecting.MappedDetectStrategy)
+	for _, s := range availableDetectStrategies {
+		m[s.Alias()] = s
+	}
+	return m
+}()
 
 type DetectStrategies struct {
 	Strategies []detecting.DetectStrategy
@@ -66,7 +73,7 @@ func (e DetectStrategyNotExistsError) Error() string {
 type DetectStrategy string
 
 func (s *DetectStrategy) checkName() error {
-	if _, ok := detectStrategyAliasMap[string(*s)]; ok {
+	if _, ok := aliasToDetectStrategy[string(*s)]; ok {
 		return nil
 	}
 	return DetectStrategyNotExistsError{string(*s)}
@@ -82,5 +89,5 @@ func (s *DetectStrategy) UnmarshalJSON(data []byte) error {
 }
 
 func (s *DetectStrategy) Strategy() detecting.DetectStrategy {
-	return detectStrategyAliasMap[string(*s)]
+	return aliasToDetectStrategy[string(*s)]
 }
