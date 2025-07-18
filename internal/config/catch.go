@@ -1,9 +1,9 @@
 package config
 
 type CatchConfig struct {
-	Catcher   Credentials      `json:"catcher"`
-	Activator Credentials      `json:"activator"`
-	DetectBy  DetectStrategies `json:"detectBy"`
+	Catcher    Credentials `json:"catcher"`
+	Activator  Credentials `json:"activator"`
+	Extractors Extractors  `json:"extractors"`
 }
 
 type Credentials struct {

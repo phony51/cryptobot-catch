@@ -7,14 +7,11 @@ import (
 )
 
 type CryptoBot struct {
-	BotID          int64
 	messageBuilder *message.RequestBuilder
 }
 
 func NewCryptoBot(sender *message.Sender, peer *tg.InputPeerUser) *CryptoBot {
-
 	return &CryptoBot{
-		BotID:          peer.UserID,
 		messageBuilder: sender.To(peer),
 	}
 }

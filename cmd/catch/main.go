@@ -4,7 +4,7 @@ import (
 	"context"
 	"cryptobot-catch/internal/config"
 	"cryptobot-catch/internal/core"
-	"cryptobot-catch/internal/core/updates"
+	"cryptobot-catch/internal/core/cheques"
 	"cryptobot-catch/internal/utils"
 	"cryptobot-catch/pkg/cryptobot"
 	"encoding/json"
@@ -57,17 +57,15 @@ func main() {
 	ctx, shutdown := context.WithCancel(context.Background())
 	defer shutdown()
 
-	messagesCh := make(chan *tg.Message)
-	defer close(messagesCh)
-	gaps := updates.NewGaps(messagesCh)
+	messagePipe := core.NewMessagePipe()
 
 	catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
 		telegram.Options{
 			SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
 			Logger:         logger,
-			UpdateHandler:  gaps,
+			UpdateHandler:  messagePipe.Dispatcher(),
 			Middlewares: []telegram.Middleware{
-				hook.UpdateHook(gaps.Handle),
+				hook.UpdateHook(messagePipe.Dispatcher().Handle),
 			},
 		},
 	)
@@ -89,20 +87,24 @@ func main() {
 		if err != nil {
 			return err
 		}
-		cryptoBot := cryptobot.NewCryptoBot(message.NewSender(activatorClient.API()),
-			&tg.InputPeerUser{
-				UserID:     resolvedCryptoBot.Users[0].GetID(),
-				AccessHash: resolvedCryptoBot.Users[0].(*tg.User).AccessHash,
-			},
-		)
+
 		_ = catcherClient.Run(ctx, func(ctx context.Context) error {
-			if _, err := catcherClient.Auth().Status(ctx); err != nil {
+			if _, err = catcherClient.Auth().Status(ctx); err != nil {
 				return errors.Join(fmt.Errorf("failed to authorize catcher"), err)
 			}
-			chequeCatcher := core.NewCatcher(cryptoBot, gaps, messagesCh, &core.CatcherOptions{
-				DetectStrategies: catchConfig.DetectBy.Strategies,
-			})
-			return chequeCatcher.Run(ctx, catcherClient.API())
+
+			activator := cheques.NewActivator(
+				cryptobot.NewCryptoBot(message.NewSender(activatorClient.API()),
+					&tg.InputPeerUser{
+						UserID:     resolvedCryptoBot.Users[0].GetID(),
+						AccessHash: resolvedCryptoBot.Users[0].(*tg.User).AccessHash,
+					},
+				),
+				3,
+			)
+
+			chequeCatcher := core.NewCatcher(messagePipe, catchConfig.Extractors.Build(), activator)
+			return chequeCatcher.Run(ctx)
 		})
 		return err
 	})

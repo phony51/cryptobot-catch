@@ -3,38 +3,39 @@ package core
 import (
 	"context"
 	"cryptobot-catch/internal/core/cheques"
-	"cryptobot-catch/internal/core/cheques/detecting"
-	"cryptobot-catch/pkg/cryptobot"
-	"github.com/gotd/td/telegram/updates"
-	"github.com/gotd/td/tg"
+	"cryptobot-catch/internal/core/cheques/extracting"
+	"cryptobot-catch/internal/utils"
 )
 
-type CatcherOptions struct {
-	DetectStrategies []detecting.DetectStrategy
+type ExtractorWorkerPoolConfig struct {
+	Extractor  extracting.Extractor
+	NumWorkers int
 }
 
 type Catcher struct {
-	filter    *cheques.Filter
-	activator *cheques.Activator
-	gaps      *updates.Manager
+	messagePipe          MessagePipe
+	extractorWorkerPools []extracting.ExtractorWorkerPool
+	activator            *cheques.Activator
 }
 
-func (c *Catcher) Run(ctx context.Context, client *tg.Client) error {
-	go func() { _ = c.activator.Run(ctx) }()
-	go func() { _ = c.filter.Run(ctx) }()
-	return c.gaps.Run(ctx, client, 0, updates.AuthOptions{})
+func (c *Catcher) Run(ctx context.Context) error {
+	messagesCh := c.messagePipe.Start(ctx)
+	numWorkerPools := len(c.extractorWorkerPools)
+	chequeIDsChs := make([]<-chan string, numWorkerPools)
+	messagesChs := utils.FanOut(messagesCh, numWorkerPools)
+
+	for i := 0; i < numWorkerPools; i++ {
+		chequeIDsChs[i] = c.extractorWorkerPools[i].Start(ctx, messagesChs[i])
+	}
+
+	chequeIDsCh := utils.FanIn(chequeIDsChs...)
+	return c.activator.Run(ctx, chequeIDsCh)
 }
 
-func NewCatcher(cryptoBot *cryptobot.CryptoBot, gaps *updates.Manager, messagesCh chan *tg.Message, options *CatcherOptions) *Catcher {
-	chequeIDs := make(chan string)
-
+func NewCatcher(messagePipe MessagePipe, extractorsWorkerPools []extracting.ExtractorWorkerPool, activator *cheques.Activator) *Catcher {
 	return &Catcher{
-		activator: cheques.NewActivator(cryptoBot, chequeIDs),
-		gaps:      gaps,
-		filter: cheques.NewFilter(
-			options.DetectStrategies,
-			messagesCh,
-			chequeIDs,
-		),
+		messagePipe,
+		extractorsWorkerPools,
+		activator,
 	}
 }
