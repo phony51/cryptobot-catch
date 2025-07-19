@@ -1,7 +1,8 @@
-package core
+package core_test
 
 import (
 	"context"
+	"cryptobot-catch/internal/core"
 	"cryptobot-catch/internal/core/cheques"
 	"github.com/gotd/td/tg"
 	"testing"
@@ -37,7 +38,7 @@ var (
 )
 
 func BenchmarkCatcher_Inline(b *testing.B) {
-	c := NewCatcher([]cheques.Extractor{inlineExtractor}, &MockWallet{})
+	c := core.NewCatcher([]cheques.Extractor{inlineExtractor}, &MockWallet{})
 	ctx := context.Background()
 
 	b.ResetTimer()
@@ -49,7 +50,7 @@ func BenchmarkCatcher_Inline(b *testing.B) {
 }
 
 func BenchmarkCatcher_Text(b *testing.B) {
-	c := NewCatcher([]cheques.Extractor{inlineExtractor}, &MockWallet{})
+	c := core.NewCatcher([]cheques.Extractor{inlineExtractor}, &MockWallet{})
 	ctx := context.Background()
 
 	b.ResetTimer()
@@ -61,7 +62,7 @@ func BenchmarkCatcher_Text(b *testing.B) {
 }
 
 func BenchmarkCatcher_Inline_Text(b *testing.B) {
-	c := NewCatcher([]cheques.Extractor{inlineExtractor, textExtractor}, &MockWallet{})
+	c := core.NewCatcher([]cheques.Extractor{inlineExtractor, textExtractor}, &MockWallet{})
 	ctx := context.Background()
 
 	b.ResetTimer()

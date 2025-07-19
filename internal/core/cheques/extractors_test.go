@@ -1,6 +1,7 @@
-package cheques
+package cheques_test
 
 import (
+	"cryptobot-catch/internal/core/cheques"
 	. "cryptobot-catch/pkg/testing"
 	"github.com/gotd/td/tg"
 	"testing"
@@ -58,14 +59,13 @@ var (
 		},
 	}
 
-	textExtractor   = TextExtractor{}
-	inlineExtractor = InlineExtractor{}
+	textExtractor   = cheques.TextExtractor{}
+	inlineExtractor = cheques.InlineExtractor{}
 )
 
 func TestInlineExtractor_Extract(t *testing.T) {
-	var actual string
 	for _, c := range inlineExtractorTestCases {
-		actual, _ = inlineExtractor.Extract(c.Data)
+		actual, _ := inlineExtractor.Extract(c.Data)
 		if actual != c.Expected {
 			t.Errorf("expected %s, got %s for keyboard %s",
 				c.Expected, actual, c.Data.ReplyMarkup)

@@ -5,7 +5,7 @@ import (
 	"cryptobot-catch/internal/config"
 	"cryptobot-catch/internal/core"
 	"cryptobot-catch/internal/utils"
-	"cryptobot-catch/pkg/cryptobot"
+	"cryptobot-catch/pkg/wallets"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -71,7 +71,7 @@ func main() {
 			Username: "send",
 		})
 
-		cryptoBot := cryptobot.NewCryptoBot(message.NewSender(activatorClient.API()),
+		cryptoBot := wallets.NewCryptoBot(message.NewSender(activatorClient.API()),
 			&tg.InputPeerUser{
 				UserID:     resolvedCryptoBot.Users[0].GetID(),
 				AccessHash: resolvedCryptoBot.Users[0].(*tg.User).AccessHash,
