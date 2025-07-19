@@ -3,39 +3,76 @@ package core
 import (
 	"context"
 	"cryptobot-catch/internal/core/cheques"
-	"cryptobot-catch/internal/core/cheques/extracting"
-	"cryptobot-catch/internal/utils"
+	"cryptobot-catch/pkg/cryptobot"
+	"github.com/gotd/td/tg"
 )
 
-type ExtractorWorkerPoolConfig struct {
-	Extractor  extracting.Extractor
-	NumWorkers int
-}
-
 type Catcher struct {
-	messagePipe          MessagePipe
-	extractorWorkerPools []extracting.ExtractorWorkerPool
-	activator            *cheques.Activator
+	d          *tg.UpdateDispatcher
+	extractors []cheques.Extractor
+	cryptoBot  *cryptobot.CryptoBot
 }
 
-func (c *Catcher) Run(ctx context.Context) error {
-	messagesCh := c.messagePipe.Start(ctx)
-	numWorkerPools := len(c.extractorWorkerPools)
-	chequeIDsChs := make([]<-chan string, numWorkerPools)
-	messagesChs := utils.FanOut(messagesCh, numWorkerPools)
-
-	for i := 0; i < numWorkerPools; i++ {
-		chequeIDsChs[i] = c.extractorWorkerPools[i].Start(ctx, messagesChs[i])
+func (c *Catcher) NewMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateNewMessage) error {
+	if msg, ok := update.GetMessage().(*tg.Message); ok {
+		for i := 0; i < len(c.extractors); i++ {
+			if chequeID, found := c.extractors[i].Extract(msg); found {
+				return c.cryptoBot.ActivateCheque(ctx, chequeID)
+			}
+		}
 	}
-
-	chequeIDsCh := utils.FanIn(chequeIDsChs...)
-	return c.activator.Run(ctx, chequeIDsCh)
+	return nil
 }
 
-func NewCatcher(messagePipe MessagePipe, extractorsWorkerPools []extracting.ExtractorWorkerPool, activator *cheques.Activator) *Catcher {
-	return &Catcher{
-		messagePipe,
-		extractorsWorkerPools,
-		activator,
+func (c *Catcher) NewChannelMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateNewChannelMessage) error {
+	if msg, ok := update.GetMessage().(*tg.Message); ok {
+		for i := 0; i < len(c.extractors); i++ {
+			if chequeID, found := c.extractors[i].Extract(msg); found {
+				return c.cryptoBot.ActivateCheque(ctx, chequeID)
+			}
+		}
 	}
+	return nil
+}
+
+func (c *Catcher) EditMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateEditMessage) error {
+	if msg, ok := update.GetMessage().(*tg.Message); ok {
+		for i := 0; i < len(c.extractors); i++ {
+			if chequeID, found := c.extractors[i].Extract(msg); found {
+				return c.cryptoBot.ActivateCheque(ctx, chequeID)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Catcher) EditChannelMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateEditChannelMessage) error {
+	if msg, ok := update.GetMessage().(*tg.Message); ok {
+		for i := 0; i < len(c.extractors); i++ {
+			if chequeID, found := c.extractors[i].Extract(msg); found {
+				return c.cryptoBot.ActivateCheque(ctx, chequeID)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Catcher) Dispatcher() *tg.UpdateDispatcher {
+	return c.d
+}
+
+func NewCatcher(extractors []cheques.Extractor, cryptoBot *cryptobot.CryptoBot) *Catcher {
+	d := tg.NewUpdateDispatcher()
+	c := &Catcher{
+		&d,
+		extractors,
+		cryptoBot,
+	}
+
+	d.OnNewMessage(c.NewMessageHandle)
+	d.OnNewChannelMessage(c.NewChannelMessageHandle)
+	d.OnEditMessage(c.EditMessageHandle)
+	d.OnEditChannelMessage(c.EditChannelMessageHandle)
+
+	return c
 }

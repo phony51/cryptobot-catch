@@ -4,7 +4,6 @@ import (
 	"context"
 	"cryptobot-catch/internal/config"
 	"cryptobot-catch/internal/core"
-	"cryptobot-catch/internal/core/cheques"
 	"cryptobot-catch/internal/utils"
 	"cryptobot-catch/pkg/cryptobot"
 	"encoding/json"
@@ -57,18 +56,6 @@ func main() {
 	ctx, shutdown := context.WithCancel(context.Background())
 	defer shutdown()
 
-	messagePipe := core.NewMessagePipe()
-
-	catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
-		telegram.Options{
-			SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
-			Logger:         logger,
-			UpdateHandler:  messagePipe.Dispatcher(),
-			Middlewares: []telegram.Middleware{
-				hook.UpdateHook(messagePipe.Dispatcher().Handle),
-			},
-		},
-	)
 	activatorClient := telegram.NewClient(catchConfig.Activator.AppID, catchConfig.Activator.AppHash,
 		telegram.Options{
 			SessionStorage: &session.FileStorage{Path: "sessions/activator.json"},
@@ -77,35 +64,44 @@ func main() {
 	)
 
 	err = activatorClient.Run(ctx, func(ctx context.Context) error {
-		if _, err := activatorClient.Auth().Status(ctx); err != nil {
+		if _, err = activatorClient.Auth().Status(ctx); err != nil {
 			return errors.Join(fmt.Errorf("failed to authorize activator"), err)
 		}
 
 		resolvedCryptoBot, err := activatorClient.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 			Username: "send",
 		})
-		if err != nil {
-			return err
-		}
 
-		_ = catcherClient.Run(ctx, func(ctx context.Context) error {
+		cryptoBot := cryptobot.NewCryptoBot(message.NewSender(activatorClient.API()),
+			&tg.InputPeerUser{
+				UserID:     resolvedCryptoBot.Users[0].GetID(),
+				AccessHash: resolvedCryptoBot.Users[0].(*tg.User).AccessHash,
+			},
+		)
+
+		catcher := core.NewCatcher(catchConfig.Extractors.Build(), cryptoBot)
+
+		catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
+			telegram.Options{
+				SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
+				UpdateHandler:  catcher.Dispatcher(),
+				Middlewares: []telegram.Middleware{
+					hook.UpdateHook(catcher.Dispatcher().Handle),
+				},
+			},
+		)
+
+		return catcherClient.Run(ctx, func(ctx context.Context) error {
 			if _, err = catcherClient.Auth().Status(ctx); err != nil {
 				return errors.Join(fmt.Errorf("failed to authorize catcher"), err)
 			}
-
-			activator := cheques.NewActivator(
-				cryptobot.NewCryptoBot(message.NewSender(activatorClient.API()),
-					&tg.InputPeerUser{
-						UserID:     resolvedCryptoBot.Users[0].GetID(),
-						AccessHash: resolvedCryptoBot.Users[0].(*tg.User).AccessHash,
-					},
-				),
-				3,
-			)
-
-			chequeCatcher := core.NewCatcher(messagePipe, catchConfig.Extractors.Build(), activator)
-			return chequeCatcher.Run(ctx)
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
 		})
-		return err
+
 	})
 }
