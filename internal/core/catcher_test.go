@@ -43,7 +43,7 @@ func BenchmarkCatcher_Inline(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = c.EditChannelMessageHandle(ctx, tg.Entities{}, inlineChequeUpdate)
+		_ = c.EditChannelMessageHandle(ctx, inlineChequeUpdate)
 	}
 	b.ReportAllocs()
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "msg/s")
@@ -55,7 +55,7 @@ func BenchmarkCatcher_Text(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = c.NewChannelMessageHandle(ctx, tg.Entities{}, textChequeUpdate)
+		_ = c.NewChannelMessageHandle(ctx, textChequeUpdate)
 	}
 	b.ReportAllocs()
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "msg/s")
@@ -69,9 +69,9 @@ func BenchmarkCatcher_Inline_Text(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if i%2 == 0 {
-			_ = c.NewChannelMessageHandle(ctx, tg.Entities{}, textChequeUpdate)
+			_ = c.NewChannelMessageHandle(ctx, textChequeUpdate)
 		} else {
-			_ = c.EditChannelMessageHandle(ctx, tg.Entities{}, inlineChequeUpdate)
+			_ = c.EditChannelMessageHandle(ctx, inlineChequeUpdate)
 		}
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "msg/s")

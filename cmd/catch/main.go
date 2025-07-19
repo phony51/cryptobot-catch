@@ -83,7 +83,7 @@ func main() {
 		catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
 			telegram.Options{
 				SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
-				UpdateHandler:  catcher.Dispatcher(),
+				UpdateHandler:  catcher,
 			},
 		)
 

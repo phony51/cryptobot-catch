@@ -5,15 +5,22 @@ import (
 	"cryptobot-catch/internal/core/cheques"
 	"cryptobot-catch/pkg/wallets"
 	"github.com/gotd/td/tg"
+	"go.uber.org/multierr"
 )
 
+type UpdateAnyMessage interface {
+	GetMessage() tg.MessageClass
+}
+
+type updateHandler = func(context.Context, UpdateAnyMessage) error
+
 type Catcher struct {
-	d          *tg.UpdateDispatcher
+	handlers   map[uint32]updateHandler
 	extractors []cheques.Extractor
 	wallet     wallets.Wallet
 }
 
-func (c *Catcher) NewMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateNewMessage) error {
+func (c *Catcher) NewMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
@@ -24,7 +31,7 @@ func (c *Catcher) NewMessageHandle(ctx context.Context, e tg.Entities, update *t
 	return nil
 }
 
-func (c *Catcher) NewChannelMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateNewChannelMessage) error {
+func (c *Catcher) NewChannelMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
@@ -35,7 +42,7 @@ func (c *Catcher) NewChannelMessageHandle(ctx context.Context, e tg.Entities, up
 	return nil
 }
 
-func (c *Catcher) EditMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateEditMessage) error {
+func (c *Catcher) EditMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
@@ -46,7 +53,7 @@ func (c *Catcher) EditMessageHandle(ctx context.Context, e tg.Entities, update *
 	return nil
 }
 
-func (c *Catcher) EditChannelMessageHandle(ctx context.Context, e tg.Entities, update *tg.UpdateEditChannelMessage) error {
+func (c *Catcher) EditChannelMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
@@ -57,22 +64,40 @@ func (c *Catcher) EditChannelMessageHandle(ctx context.Context, e tg.Entities, u
 	return nil
 }
 
-func (c *Catcher) Dispatcher() *tg.UpdateDispatcher {
-	return c.d
+func (c *Catcher) Handle(ctx context.Context, u tg.UpdatesClass) error {
+	var upds []tg.UpdateClass
+	switch upd := u.(type) {
+	case *tg.Updates:
+		upds = upd.Updates
+	case *tg.UpdatesCombined:
+		upds = upd.Updates
+	case *tg.UpdateShort:
+		upds = []tg.UpdateClass{upd.Update}
+	default:
+		return nil
+	}
+
+	var err error
+	for i := 0; i < len(upds); i++ {
+		if h, ok := c.handlers[upds[i].TypeID()]; ok {
+			multierr.AppendInto(&err, h(ctx, upds[i].(UpdateAnyMessage)))
+		}
+	}
+	return err
 }
 
 func NewCatcher(extractors []cheques.Extractor, wallet wallets.Wallet) *Catcher {
-	d := tg.NewUpdateDispatcher()
+	handlers := make(map[uint32]updateHandler)
+
 	c := &Catcher{
-		&d,
+		handlers,
 		extractors,
 		wallet,
 	}
-
-	d.OnNewMessage(c.NewMessageHandle)
-	d.OnNewChannelMessage(c.NewChannelMessageHandle)
-	d.OnEditMessage(c.EditMessageHandle)
-	d.OnEditChannelMessage(c.EditChannelMessageHandle)
+	handlers[tg.UpdateNewMessageTypeID] = c.NewMessageHandle
+	handlers[tg.UpdateEditMessageTypeID] = c.EditMessageHandle
+	handlers[tg.UpdateNewChannelMessageTypeID] = c.NewChannelMessageHandle
+	handlers[tg.UpdateEditChannelMessageTypeID] = c.EditChannelMessageHandle
 
 	return c
 }
