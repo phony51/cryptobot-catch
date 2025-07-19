@@ -12,7 +12,6 @@ import (
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/message"
-	"github.com/gotd/td/telegram/updates/hook"
 	"github.com/gotd/td/tg"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -85,9 +84,6 @@ func main() {
 			telegram.Options{
 				SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
 				UpdateHandler:  catcher.Dispatcher(),
-				Middlewares: []telegram.Middleware{
-					hook.UpdateHook(catcher.Dispatcher().Handle),
-				},
 			},
 		)
 
