@@ -1,4 +1,4 @@
-package cryptobot
+package wallets
 
 import (
 	"context"
