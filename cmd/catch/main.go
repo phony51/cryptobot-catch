@@ -95,7 +95,7 @@ func main() {
 		)
 
 		return catcherClient.Run(ctx, func(ctx context.Context) error {
-			pool, err := catcherClient.Pool(3)
+			pool, err := catcherClient.Pool(2)
 			utils.Must(err)
 			defer utils.Must(pool.Close())
 			if _, err = catcherClient.Auth().Status(ctx); err != nil {
