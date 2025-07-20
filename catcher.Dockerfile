@@ -6,12 +6,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w" \
-    -gcflags="-d=ssa/check_bce=0" \
-    -trimpath \
-    -o /app/bin/catcher \
-    ./cmd/catch/main.go
+RUN GOOS=linux CGO_ENABLED=0 GOAMD64=v3 go build  \
+    -trimpath -ldflags="-s -w -extldflags '-static' -X " \
+    -gcflags="-d=ssa/check_bce=0 -d=ssa/check=0 -d=ssa/prove=0 -m=0" \
+    -o catcher.exe  \
+    "./cmd/catch/main.go"
 
 FROM alpine:latest
 
