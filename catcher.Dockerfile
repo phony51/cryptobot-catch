@@ -7,8 +7,8 @@ RUN go mod download
 
 COPY . .
 RUN GOOS=linux CGO_ENABLED=0 GOAMD64=v3 go build  \
-    -trimpath -ldflags="-s -w -extldflags '-static' -X " \
-    -gcflags="-d=ssa/check_bce=0 -d=ssa/check=0 -d=ssa/prove=0 -m=0" \
+    -trimpath -ldflags="-s -w" \
+    -gcflags="-d=ssa/check_bce=0 -m=0" \
     -o catcher.exe  \
     "./cmd/catch/main.go"
 

@@ -26,14 +26,7 @@ var (
 		TimeKey:    "timestamp",
 		EncodeTime: zapcore.ISO8601TimeEncoder,
 	}
-	devCfg = zap.Config{
-		Encoding:         "json",
-		Level:            zap.NewAtomicLevelAt(zap.DebugLevel),
-		OutputPaths:      []string{"stdout"},
-		ErrorOutputPaths: []string{"stderr"},
-		EncoderConfig:    encCfg,
-	}
-	prodCfg = zap.Config{
+	logCfg = zap.Config{
 		Encoding:         "json",
 		Level:            zap.NewAtomicLevelAt(zap.InfoLevel),
 		OutputPaths:      []string{"stdout", "logs.json"},
@@ -43,14 +36,17 @@ var (
 )
 
 func main() {
-	logger, err := prodCfg.Build()
-	utils.Must(err)
-	zap.ReplaceGlobals(logger)
 
 	var catchConfig config.CatchConfig
 	raw, err := os.ReadFile("configuration.json")
 	utils.Must(err)
 	utils.Must(json.Unmarshal(raw, &catchConfig))
+	logCfg.Level = zap.NewAtomicLevelAt(
+		map[bool]zapcore.Level{true: zapcore.DebugLevel, false: zapcore.InfoLevel}[catchConfig.Debug],
+	)
+	logger, err := logCfg.Build()
+	utils.Must(err)
+	zap.ReplaceGlobals(logger)
 	logger.Info("configuration loaded", zap.String("configuration", fmt.Sprint(catchConfig)))
 
 	ctx, shutdown := context.WithCancel(context.Background())
@@ -58,13 +54,20 @@ func main() {
 
 	activatorClient := telegram.NewClient(catchConfig.Activator.AppID, catchConfig.Activator.AppHash,
 		telegram.Options{
+			CompressThreshold: -1,
 			SessionStorage:    &session.FileStorage{Path: "sessions/activator.json"},
+			AckInterval:       time.Millisecond * catchConfig.Connection.AckIntervalMs,
+			AckBatchSize:      catchConfig.Connection.AckBatchSize,
 			Logger:            logger,
 			NoUpdates:         true,
-			CompressThreshold: -1,
 		},
 	)
 	err = activatorClient.Run(ctx, func(ctx context.Context) error {
+		activatorConnCloser, err := activatorClient.DC(ctx, catchConfig.Connection.DC, catchConfig.Connection.MaxConnections)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = activatorConnCloser.Close() }()
 		if _, err = activatorClient.Auth().Status(ctx); err != nil {
 			return errors.Join(fmt.Errorf("failed to authorize activator"), err)
 		}
@@ -87,8 +90,8 @@ func main() {
 		catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
 			telegram.Options{
 				CompressThreshold: -1,
-				AckInterval:       time.Millisecond * 100,
-				AckBatchSize:      50,
+				AckInterval:       time.Millisecond * catchConfig.Connection.AckIntervalMs,
+				AckBatchSize:      catchConfig.Connection.AckBatchSize,
 				SessionStorage:    &session.FileStorage{Path: "sessions/catcher.json"},
 				UpdateHandler:     catcher,
 			},
@@ -96,9 +99,11 @@ func main() {
 
 		catcher.SetAPI(catcherClient.API())
 		return catcherClient.Run(ctx, func(ctx context.Context) error {
-			pool, err := catcherClient.Pool(2)
-			utils.Must(err)
-			defer utils.Must(pool.Close())
+			catcherConnCloser, err := activatorClient.DC(ctx, catchConfig.Connection.DC, catchConfig.Connection.MaxConnections)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = catcherConnCloser.Close() }()
 			if _, err = catcherClient.Auth().Status(ctx); err != nil {
 				return errors.Join(fmt.Errorf("failed to authorize catcher"), err)
 			}

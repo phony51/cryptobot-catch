@@ -6,9 +6,11 @@ import (
 	"cryptobot-catch/pkg/wallets"
 	"github.com/gotd/td/tg"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 )
 
 type UpdateAnyMessage interface {
+	tg.UpdateClass
 	GetMessage() tg.MessageClass
 }
 
@@ -18,6 +20,7 @@ type Catcher struct {
 	handlers   map[uint32]updateHandler
 	extractors []cheques.Extractor
 	wallet     wallets.Wallet
+	logger     *zap.Logger
 	api        *tg.Client
 }
 
@@ -25,44 +28,100 @@ func (c *Catcher) SetAPI(api *tg.Client) {
 	c.api = api
 }
 
-func (c *Catcher) NewMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
-	if msg, ok := update.GetMessage().(*tg.Message); ok {
-		for i := 0; i < len(c.extractors); i++ {
-			if chequeID, found := c.extractors[i].Extract(msg); found {
-				return c.wallet.ActivateCheque(ctx, chequeID)
-			}
-		}
-	}
-	return nil
-}
+//func (c *Catcher) NewMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
+//	if msg, ok := update.GetMessage().(*tg.Message); ok {
+//		for i := 0; i < len(c.extractors); i++ {
+//			if chequeID, found := c.extractors[i].Extract(msg); found {
+//				err := c.wallet.ActivateCheque(ctx, chequeID)
+//				if err != nil {
+//					c.logger.Error("failed to activate cheque", zap.Error(err))
+//				}
+//				c.logger.Debug("caught cheque",
+//					zap.String("id", chequeID),
+//					zap.String("extractor", c.extractors[i].Name()),
+//					zap.String("updateType", update.TypeName()),
+//				)
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
+//
+//func (c *Catcher) NewChannelMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
+//	if msg, ok := update.GetMessage().(*tg.Message); ok {
+//		for i := 0; i < len(c.extractors); i++ {
+//			if chequeID, found := c.extractors[i].Extract(msg); found {
+//				err := c.wallet.ActivateCheque(ctx, chequeID)
+//				if err != nil {
+//					c.logger.Error("failed to activate cheque", zap.Error(err))
+//				}
+//				c.logger.Debug("caught cheque",
+//					zap.String("id", chequeID),
+//					zap.String("extractor", c.extractors[i].Name()),
+//					zap.String("updateType", update.TypeName()),
+//				)
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
+//
+//func (c *Catcher) EditMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
+//	if msg, ok := update.GetMessage().(*tg.Message); ok {
+//		for i := 0; i < len(c.extractors); i++ {
+//			if chequeID, found := c.extractors[i].Extract(msg); found {
+//				err := c.wallet.ActivateCheque(ctx, chequeID)
+//				if err != nil {
+//					c.logger.Error("failed to activate cheque", zap.Error(err))
+//				}
+//				c.logger.Debug("caught cheque",
+//					zap.String("id", chequeID),
+//					zap.String("extractor", c.extractors[i].Name()),
+//					zap.String("updateType", update.TypeName()),
+//				)
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
+//
+//func (c *Catcher) EditChannelMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
+//	if msg, ok := update.GetMessage().(*tg.Message); ok {
+//		for i := 0; i < len(c.extractors); i++ {
+//			if chequeID, found := c.extractors[i].Extract(msg); found {
+//				err := c.wallet.ActivateCheque(ctx, chequeID)
+//				if err != nil {
+//					c.logger.Error("failed to activate cheque", zap.Error(err))
+//				}
+//				c.logger.Debug("caught cheque",
+//					zap.String("id", chequeID),
+//					zap.String("extractor", c.extractors[i].Name()),
+//					zap.String("updateType", update.TypeName()),
+//				)
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
 
-func (c *Catcher) NewChannelMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
+func (c *Catcher) UpdateAnyMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
-				return c.wallet.ActivateCheque(ctx, chequeID)
-			}
-		}
-	}
-	return nil
-}
-
-func (c *Catcher) EditMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
-	if msg, ok := update.GetMessage().(*tg.Message); ok {
-		for i := 0; i < len(c.extractors); i++ {
-			if chequeID, found := c.extractors[i].Extract(msg); found {
-				return c.wallet.ActivateCheque(ctx, chequeID)
-			}
-		}
-	}
-	return nil
-}
-
-func (c *Catcher) EditChannelMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
-	if msg, ok := update.GetMessage().(*tg.Message); ok {
-		for i := 0; i < len(c.extractors); i++ {
-			if chequeID, found := c.extractors[i].Extract(msg); found {
-				return c.wallet.ActivateCheque(ctx, chequeID)
+				err := c.wallet.ActivateCheque(ctx, chequeID)
+				if err != nil {
+					c.logger.Error("failed to activate cheque", zap.Error(err))
+				}
+				c.logger.Debug("caught cheque",
+					zap.String("id", chequeID),
+					zap.String("extractor", c.extractors[i].Name()),
+					zap.String("updateType", update.TypeName()),
+				)
+				return err
 			}
 		}
 	}
@@ -92,7 +151,7 @@ func (c *Catcher) Handle(ctx context.Context, u tg.UpdatesClass) error {
 			return err
 		}
 	default:
-		return nil
+		c.logger.Debug("unhandled updates", zap.Any("updates", upd))
 	}
 
 	var err error
@@ -111,12 +170,13 @@ func NewCatcher(extractors []cheques.Extractor, wallet wallets.Wallet) *Catcher 
 		handlers,
 		extractors,
 		wallet,
+		zap.L(),
 		nil,
 	}
-	handlers[tg.UpdateNewMessageTypeID] = c.NewMessageHandle
-	handlers[tg.UpdateEditMessageTypeID] = c.EditMessageHandle
-	handlers[tg.UpdateNewChannelMessageTypeID] = c.NewChannelMessageHandle
-	handlers[tg.UpdateEditChannelMessageTypeID] = c.EditChannelMessageHandle
+	handlers[tg.UpdateNewMessageTypeID] = c.UpdateAnyMessageHandle
+	handlers[tg.UpdateEditMessageTypeID] = c.UpdateAnyMessageHandle
+	handlers[tg.UpdateNewChannelMessageTypeID] = c.UpdateAnyMessageHandle
+	handlers[tg.UpdateEditChannelMessageTypeID] = c.UpdateAnyMessageHandle
 
 	return c
 }

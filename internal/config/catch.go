@@ -3,6 +3,8 @@ package config
 type CatchConfig struct {
 	Catcher    Credentials `json:"catcher"`
 	Activator  Credentials `json:"activator"`
+	Connection Connection  `json:"connection"`
+	Debug      bool        `json:"debug"`
 	Extractors Extractors  `json:"extractors"`
 }
 
