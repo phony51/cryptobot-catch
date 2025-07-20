@@ -15,7 +15,7 @@ func (w *MockWallet) ActivateCheque(ctx context.Context, chequeID string) error 
 }
 
 var (
-	textExtractor, _   = cheques.NewTextExtractor()
+	textExtractor      = &cheques.TextExtractor{}
 	inlineExtractor    = &cheques.InlineExtractor{}
 	inlineChequeUpdate = &tg.UpdateEditChannelMessage{
 		Message: &tg.Message{

@@ -1,10 +1,9 @@
 package cheques
 
 import (
-	"github.com/flier/gohs/hyperscan"
 	"github.com/gotd/td/tg"
+	regexp "github.com/wasilibs/go-re2"
 	"strings"
-	"sync"
 )
 
 type ExtractFunc func(message *tg.Message) (string, bool)
@@ -33,80 +32,20 @@ func (ie *InlineExtractor) Extract(message *tg.Message) (string, bool) {
 	return "", false
 }
 
-type TextExtractor struct {
-	db      hyperscan.BlockDatabase
-	scratch *hyperscan.Scratch
-	mu      sync.Mutex
-}
-
 const chequePrefix = "CQ"
 
-func NewTextExtractor() (*TextExtractor, error) {
-	pattern := hyperscan.NewPattern(chequePrefix+"[A-Za-z0-9]{10}", hyperscan.SomLeftMost)
-	db, err := hyperscan.NewBlockDatabase(pattern)
-	if err != nil {
-		return nil, err
-	}
+var chequeIDPattern = regexp.MustCompile(chequePrefix + "[A-Za-z0-9]{10}")
 
-	scratch, err := hyperscan.NewScratch(db)
-	if err != nil {
-		err = db.Close()
-		return nil, err
-	}
-
-	return &TextExtractor{
-		db:      db,
-		scratch: scratch,
-	}, nil
-}
+type TextExtractor struct{}
 
 func (te *TextExtractor) Name() string {
 	return "text"
 }
 
-func (te *TextExtractor) Close() error {
-	te.mu.Lock()
-	defer te.mu.Unlock()
-
-	var err error
-	if te.scratch != nil {
-		err = te.scratch.Free()
-		te.scratch = nil
-	}
-	if te.db != nil {
-		err2 := te.db.Close()
-		if err == nil {
-			err = err2
-		}
-		te.db = nil
-	}
-	return err
-}
-
 func (te *TextExtractor) Extract(message *tg.Message) (string, bool) {
-	if message.Message == "" {
-		return "", false
+	found := chequeIDPattern.FindString(message.Message)
+	if found != "" {
+		return found[len(chequePrefix):], true
 	}
-
-	te.mu.Lock()
-	defer te.mu.Unlock()
-
-	var matchFound string
-
-	handler := func(id uint, from, to uint64, flags uint, context interface{}) error {
-		text := context.(string)
-		matchFound = text[from:to]
-		return hyperscan.ErrScanTerminated
-	}
-
-	err := te.db.Scan([]byte(message.Message), te.scratch, handler, message.Message)
-	if err != nil {
-		return "", false
-	}
-
-	if matchFound != "" {
-		return matchFound[len("CQ"):], true
-	}
-
 	return "", false
 }
