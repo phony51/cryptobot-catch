@@ -18,6 +18,11 @@ type Catcher struct {
 	handlers   map[uint32]updateHandler
 	extractors []cheques.Extractor
 	wallet     wallets.Wallet
+	api        *tg.Client
+}
+
+func (c *Catcher) SetAPI(api *tg.Client) {
+	c.api = api
 }
 
 func (c *Catcher) NewMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
@@ -73,6 +78,19 @@ func (c *Catcher) Handle(ctx context.Context, u tg.UpdatesClass) error {
 		upds = upd.Updates
 	case *tg.UpdateShort:
 		upds = []tg.UpdateClass{upd.Update}
+	case *tg.UpdatesTooLong:
+		state, err := c.api.UpdatesGetState(ctx)
+		if err != nil {
+			return err
+		}
+		_, err = c.api.UpdatesGetDifference(ctx, &tg.UpdatesGetDifferenceRequest{
+			Pts:  state.Pts,
+			Qts:  state.Qts,
+			Date: state.Date,
+		})
+		if err != nil {
+			return err
+		}
 	default:
 		return nil
 	}
@@ -93,6 +111,7 @@ func NewCatcher(extractors []cheques.Extractor, wallet wallets.Wallet) *Catcher 
 		handlers,
 		extractors,
 		wallet,
+		nil,
 	}
 	handlers[tg.UpdateNewMessageTypeID] = c.NewMessageHandle
 	handlers[tg.UpdateEditMessageTypeID] = c.EditMessageHandle

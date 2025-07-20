@@ -94,6 +94,7 @@ func main() {
 			},
 		)
 
+		catcher.SetAPI(catcherClient.API())
 		return catcherClient.Run(ctx, func(ctx context.Context) error {
 			pool, err := catcherClient.Pool(2)
 			utils.Must(err)
