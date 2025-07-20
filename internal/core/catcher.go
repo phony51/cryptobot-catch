@@ -4,8 +4,10 @@ import (
 	"context"
 	"cryptobot-catch/internal/core/cheques"
 	"cryptobot-catch/pkg/wallets"
+	"fmt"
 	"github.com/gotd/td/tg"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 )
 
 type UpdateAnyMessage interface {
@@ -18,6 +20,7 @@ type Catcher struct {
 	handlers   map[uint32]updateHandler
 	extractors []cheques.Extractor
 	wallet     wallets.Wallet
+	logger     *zap.Logger
 }
 
 func (c *Catcher) NewMessageHandle(ctx context.Context, update UpdateAnyMessage) error {
@@ -35,6 +38,7 @@ func (c *Catcher) NewChannelMessageHandle(ctx context.Context, update UpdateAnyM
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
+				c.logger.Info("cheque caught", zap.String("chequeID", chequeID))
 				return c.wallet.ActivateCheque(ctx, chequeID)
 			}
 		}
@@ -46,6 +50,7 @@ func (c *Catcher) EditMessageHandle(ctx context.Context, update UpdateAnyMessage
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
+				c.logger.Info("cheque caught", zap.String("chequeID", chequeID))
 				return c.wallet.ActivateCheque(ctx, chequeID)
 			}
 		}
@@ -57,6 +62,7 @@ func (c *Catcher) EditChannelMessageHandle(ctx context.Context, update UpdateAny
 	if msg, ok := update.GetMessage().(*tg.Message); ok {
 		for i := 0; i < len(c.extractors); i++ {
 			if chequeID, found := c.extractors[i].Extract(msg); found {
+				c.logger.Info("cheque caught", zap.String("chequeID", chequeID))
 				return c.wallet.ActivateCheque(ctx, chequeID)
 			}
 		}
@@ -74,7 +80,7 @@ func (c *Catcher) Handle(ctx context.Context, u tg.UpdatesClass) error {
 	case *tg.UpdateShort:
 		upds = []tg.UpdateClass{upd.Update}
 	default:
-		return nil
+		c.logger.Info(fmt.Sprint(u))
 	}
 
 	var err error
@@ -86,16 +92,17 @@ func (c *Catcher) Handle(ctx context.Context, u tg.UpdatesClass) error {
 	return err
 }
 
-func NewCatcher(extractors []cheques.Extractor, wallet wallets.Wallet) *Catcher {
+func NewCatcher(extractors []cheques.Extractor, wallet wallets.Wallet, logger *zap.Logger) *Catcher {
 	handlers := make(map[uint32]updateHandler)
 
 	c := &Catcher{
 		handlers,
 		extractors,
 		wallet,
+		logger,
 	}
-	handlers[tg.UpdateNewMessageTypeID] = c.NewMessageHandle
-	handlers[tg.UpdateEditMessageTypeID] = c.EditMessageHandle
+	//handlers[tg.UpdateNewMessageTypeID] = c.NewMessageHandle
+	//handlers[tg.UpdateEditMessageTypeID] = c.EditMessageHandle
 	handlers[tg.UpdateNewChannelMessageTypeID] = c.NewChannelMessageHandle
 	handlers[tg.UpdateEditChannelMessageTypeID] = c.EditChannelMessageHandle
 

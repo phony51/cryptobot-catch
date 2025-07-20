@@ -45,6 +45,7 @@ func main() {
 	logger, err := prodCfg.Build()
 	utils.Must(err)
 	zap.ReplaceGlobals(logger)
+	defer utils.Must(logger.Sync())
 
 	var catchConfig config.CatchConfig
 	raw, err := os.ReadFile("configuration.json")
@@ -78,7 +79,7 @@ func main() {
 			},
 		)
 
-		catcher := core.NewCatcher(catchConfig.Extractors.Build(), cryptoBot)
+		catcher := core.NewCatcher(catchConfig.Extractors.Build(), cryptoBot, logger)
 
 		catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
 			telegram.Options{
