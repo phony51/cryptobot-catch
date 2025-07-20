@@ -8,6 +8,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
+    -gcflags="-d=ssa/check_bce=0" \
     -trimpath \
     -o /app/bin/catcher \
     ./cmd/catch/main.go

@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"os"
+	"time"
 )
 
 var (
@@ -57,11 +58,12 @@ func main() {
 
 	activatorClient := telegram.NewClient(catchConfig.Activator.AppID, catchConfig.Activator.AppHash,
 		telegram.Options{
-			SessionStorage: &session.FileStorage{Path: "sessions/activator.json"},
-			Logger:         logger,
+			SessionStorage:    &session.FileStorage{Path: "sessions/activator.json"},
+			Logger:            logger,
+			NoUpdates:         true,
+			CompressThreshold: -1,
 		},
 	)
-
 	err = activatorClient.Run(ctx, func(ctx context.Context) error {
 		if _, err = activatorClient.Auth().Status(ctx); err != nil {
 			return errors.Join(fmt.Errorf("failed to authorize activator"), err)
@@ -70,7 +72,9 @@ func main() {
 		resolvedCryptoBot, err := activatorClient.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 			Username: "send",
 		})
-
+		if err != nil {
+			return err
+		}
 		cryptoBot := wallets.NewCryptoBot(message.NewSender(activatorClient.API()),
 			&tg.InputPeerUser{
 				UserID:     resolvedCryptoBot.Users[0].GetID(),
@@ -82,12 +86,18 @@ func main() {
 
 		catcherClient := telegram.NewClient(catchConfig.Catcher.AppID, catchConfig.Catcher.AppHash,
 			telegram.Options{
-				SessionStorage: &session.FileStorage{Path: "sessions/catcher.json"},
-				UpdateHandler:  catcher,
+				CompressThreshold: -1,
+				AckInterval:       time.Millisecond * 100,
+				AckBatchSize:      50,
+				SessionStorage:    &session.FileStorage{Path: "sessions/catcher.json"},
+				UpdateHandler:     catcher,
 			},
 		)
 
 		return catcherClient.Run(ctx, func(ctx context.Context) error {
+			pool, err := catcherClient.Pool(3)
+			utils.Must(err)
+			defer utils.Must(pool.Close())
 			if _, err = catcherClient.Auth().Status(ctx); err != nil {
 				return errors.Join(fmt.Errorf("failed to authorize catcher"), err)
 			}
